@@ -1,4 +1,4 @@
-﻿#!/usr/bin/python
+#!/usr/bin/python
 import time
 import Adafruit_CharLCD as LCD
 import Adafruit_GPIO.MCP230xx as MCP
@@ -149,7 +149,7 @@ while raceAgain=='yes' or raceAgain=='y' or raceAgain=='Y':
     print("Do you want to race again?(yes(y) or no(n))")
     # lcd.clear()
     lcd.message('Race again?')
-    time.sleep(3)
+    time.sleep(2)
     lcd.clear()
     lcd.message('yes(y) or no(n)')
     # process.terminate()
