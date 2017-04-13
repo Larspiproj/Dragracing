@@ -17,8 +17,8 @@ callback_flag           = 19
 yellow_flag             = 16
 green_flag              = 26
 false_start             = 21        # temporarly to indicate "false start"
-FLAGS = [photocell_stage1,photocell_stage2,photocell_1000,callback_flag,
-         yellow_flag,green_flag,false_start]
+FLAGS = (photocell_stage1,photocell_stage2,photocell_1000,callback_flag,
+         yellow_flag,green_flag,false_start)
 
 def init_gpio():
     GPIO.setup(photocell_stage1, GPIO.IN)
@@ -34,16 +34,17 @@ def callback_roll_out(channel):
     global roll_out_time
     roll_out_time = time.time()
     GPIO.output(callback_flag, 1)
+    # green is not activated and  yellow sequence started. Stage 1, 2, yellow and red light on.
     if GPIO.input(green_flag) == 0 and GPIO.input(yellow_flag) == 1:
         GPIO.output(false_start, 1)
         print("RED")
         bus.write_byte(0x20, 0x20)
+    # green is not activated and yellow sequence not started. Stage 1, 2 and red lights on.
     elif GPIO.input(green_flag) == 0 and GPIO.input(yellow_flag) == 0:
         GPIO.output(false_start, 1)             # RED light on here
         print("RED")
         bus.write_byte(0x20, 0xBC)
-    # check YELLOW_FLAG ##########################################################
-                
+
 def callback_1000(channel):
     print"callback_1000"
     global time_1000
@@ -72,7 +73,7 @@ def race():
     if GPIO.input(false_start) == 1:
         bus.write_byte(0x20, 0x20)
     else:
-        # set YELLOW_FLAG ############################################################
+
         GPIO.output(yellow_flag, 1)
         bus.write_byte(0x20, 0xE0)
     
