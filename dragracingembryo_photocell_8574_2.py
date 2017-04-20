@@ -6,24 +6,25 @@ import RPi.GPIO as GPIO
 import time
 bus = SMBus(1)
 
-GPIO.setmode(GPIO.BCM)
-GPIO.setwarnings(False)
-
 # Set GPIO
 photocell_stage1        =  5        
 photocell_stage2        =  6
 photocell_1000          = 13
 callback_flag           = 19
+finish_flag		= 21
 yellow_flag             = 16
 green_flag              = 26
 FLAGS = (photocell_stage1,photocell_stage2,photocell_1000,callback_flag,
-         yellow_flag,green_flag,)
+         finish_flag,yellow_flag,green_flag)
 
 def init_gpio():
+    GPIO.setmode(GPIO.BCM)
+    GPIO.setwarnings(False)
     GPIO.setup(photocell_stage1, GPIO.IN)
     GPIO.setup(photocell_stage2, GPIO.IN)
     GPIO.setup(photocell_1000, GPIO.IN)
     GPIO.setup(callback_flag, GPIO.OUT, initial=0)
+    GPIO.setup(finish_flag, GPIO.OUT, initial=0)
     GPIO.setup(yellow_flag, GPIO.OUT, initial=0)
     GPIO.setup(green_flag, GPIO.OUT, initial=0)
 
@@ -46,7 +47,9 @@ def callback_1000(channel):
     print"callback_1000"
     global time_1000
     time_1000 = time.time()
+    GPIO.output(finish_flag, 1)
     print"ET: ", round(time_1000 - roll_out_time, 3)
+    print"Reactiontime: ", round(roll_out_time -  greentime, 3)
     GPIO.remove_event_detect(photocell_1000)
         
 def race():    
@@ -92,21 +95,28 @@ def race():
         if GPIO.input(callback_flag) != 0:
             break
 
+    while True:
+        GPIO.input(finish_flag) == 0
+        if GPIO.input(finish_flag) != 0:
+            break
+
     return green
 
-try:
-    raceAgain = "yes"
-    while raceAgain == "yes" or raceAgain == "y":
-        init_gpio()
+raceAgain = "yes"
+while raceAgain == "yes" or raceAgain == "y":
+    bus.write_byte(0x20, 0xFF)
+    init_gpio()
+    try:
         greentime = race()
-        time.sleep(10)
-        print"Reactiontime: ", round(roll_out_time -  greentime, 3)
-        print"Do you want to raceagain (yes(y) or no(n))?"
-        raceAgain = raw_input()
-except KeyboardInterrupt:
-    pass
+    except KeyboardInterrupt:
+        print"Race cancelled\n"
+    # time.sleep(10)
+    # print"Reactiontime: ", round(roll_out_time -  greentime, 3)
+    print"Do you want to race again (yes(y) or no(n))?"
+    raceAgain = raw_input()
 
 print"Race Cancelled"
 bus.write_byte(0x20, 0xFF)
 GPIO.cleanup()
-        
+
+"""To do: CTRL-C vid stage. Ev egen function för stage. Function för tider och lcd text."""        
