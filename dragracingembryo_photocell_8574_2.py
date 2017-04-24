@@ -12,10 +12,7 @@ photocell_stage2        =  6
 photocell_1000          = 13
 callback_flag           = 19
 finish_flag		= 21
-yellow_flag             = 16
 green_flag              = 26
-FLAGS = (photocell_stage1,photocell_stage2,photocell_1000,callback_flag,
-         finish_flag,yellow_flag,green_flag)
 
 def init_gpio():
     GPIO.setmode(GPIO.BCM)
@@ -25,7 +22,6 @@ def init_gpio():
     GPIO.setup(photocell_1000, GPIO.IN)
     GPIO.setup(callback_flag, GPIO.OUT, initial=0)
     GPIO.setup(finish_flag, GPIO.OUT, initial=0)
-    GPIO.setup(yellow_flag, GPIO.OUT, initial=0)
     GPIO.setup(green_flag, GPIO.OUT, initial=0)
 
 def callback_roll_out(channel):
@@ -34,61 +30,47 @@ def callback_roll_out(channel):
     roll_out_time = time.time()
     GPIO.output(callback_flag, 1)
     GPIO.remove_event_detect(photocell_stage2)
-    # green is not activated and  yellow sequence started. Stage 1, 2, yellow and red light on.
-    if GPIO.input(green_flag) == 0 and GPIO.input(yellow_flag) == 1:
+    # check if falsestart
+    if GPIO.input(green_flag) == 0: 
         print("RED")
-        bus.write_byte(0x20, 0x20)
-    # green is not activated and yellow sequence not started. Stage 1, 2 and red lights on.
-    elif GPIO.input(green_flag) == 0 and GPIO.input(yellow_flag) == 0:
-        print("RED")
-        bus.write_byte(0x20, 0xBC)
+        bus.write_byte(0x39, 0x02)
 
 def callback_1000(channel):
     print"callback_1000"
     global time_1000
     time_1000 = time.time()
     GPIO.output(finish_flag, 1)
-    print"ET: ", round(time_1000 - roll_out_time, 3)
-    print"Reactiontime: ", round(roll_out_time -  greentime, 3)
     GPIO.remove_event_detect(photocell_1000)
         
-def race():    
-    GPIO.wait_for_edge(photocell_stage1, GPIO.FALLING)       # STAGE 1
+def stage():    
+    # stage 1
+    GPIO.wait_for_edge(photocell_stage1, GPIO.FALLING)
     print("STAGE_1")
-    bus.write_byte(0x20, 0xFE)
+    bus.write_byte(0x20, 0x1E)
     GPIO.remove_event_detect(photocell_stage1)
     
-    time.sleep(1)
-    GPIO.wait_for_edge(photocell_stage2, GPIO.FALLING)       # STAGE 2
+    # stage 2
+    GPIO.wait_for_edge(photocell_stage2, GPIO.FALLING)
     print("STAGE_2")
-    bus.write_byte(0x20, 0xFC)
+    bus.write_byte(0x20, 0x1C)
     GPIO.remove_event_detect(photocell_stage2)
-    
     GPIO.add_event_detect(photocell_stage2,GPIO.RISING,
                           callback=callback_roll_out, bouncetime=1000)
+
+def race():
     GPIO.add_event_detect(photocell_1000, GPIO.FALLING,
-                              callback=callback_1000, bouncetime=1000)
-
-    time.sleep(3)
-    
+                              callback=callback_1000, bouncetime=1000)   
     print("YELLOW")
-    # if false start keep red light on
-    if GPIO.input(callback_flag) == 1:
-        bus.write_byte(0x20, 0x20)
-    else:
-
-        GPIO.output(yellow_flag, 1)
-        bus.write_byte(0x20, 0xE0)
+    bus.write_byte(0x20, 0x00)
     
     time.sleep(0.4)
     if GPIO.input(callback_flag) == 0:
         green = time.time()
-        bus.write_byte(0x20, 0xDF)        
+        bus.write_byte(0x39, 0x01)        
         GPIO.output(green_flag, 1)
         print"green: ", green
     else:
         green = time.time()
-        bus.write_byte(0x20, 0x20)      
         
     while True:
         GPIO.input(callback_flag) == 0
@@ -102,21 +84,26 @@ def race():
 
     return green
 
+def times():
+    print"ET:", round(time_1000 - roll_out_time, 3)
+    print"Reactiontime:", round(roll_out_time -  greentime, 3)
+
 raceAgain = "yes"
 while raceAgain == "yes" or raceAgain == "y":
     bus.write_byte(0x20, 0xFF)
+    bus.write_byte(0x39, 0xFF)
     init_gpio()
     try:
+        stage()
+        time.sleep(2)
         greentime = race()
+        times()
     except KeyboardInterrupt:
-        print"Race cancelled\n"
-    # time.sleep(10)
-    # print"Reactiontime: ", round(roll_out_time -  greentime, 3)
+        print"Race Cancelled\n"
     print"Do you want to race again (yes(y) or no(n))?"
     raceAgain = raw_input()
 
 print"Race Cancelled"
 bus.write_byte(0x20, 0xFF)
+bus.write_byte(0x39, 0xFF)
 GPIO.cleanup()
-
-"""To do: CTRL-C vid stage. Ev egen function för stage. Function för tider och lcd text."""        
