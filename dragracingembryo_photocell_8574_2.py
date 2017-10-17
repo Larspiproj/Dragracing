@@ -10,6 +10,7 @@ bus = SMBus(1)
 photocell_stage1        =  5        
 photocell_stage2        =  6
 photocell_1000          = 13
+stage_flag		= 16
 callback_flag           = 19
 finish_flag		= 21
 green_flag              = 26
@@ -20,9 +21,23 @@ def init_gpio():
     GPIO.setup(photocell_stage1, GPIO.IN)
     GPIO.setup(photocell_stage2, GPIO.IN)
     GPIO.setup(photocell_1000, GPIO.IN)
+    GPIO.setup(stage_flag, GPIO.OUT, initial=0)
     GPIO.setup(callback_flag, GPIO.OUT, initial=0)
     GPIO.setup(finish_flag, GPIO.OUT, initial=0)
     GPIO.setup(green_flag, GPIO.OUT, initial=0)
+
+def callback_stage1(channel):
+    # print("stage1")
+    bus.write_byte(0x20, 0x1E)
+    GPIO.remove_event_detect(photocell_stage1)
+
+def callback_stage2(channel):
+    # print("stage2")
+    bus.write_byte(0x20, 0x1C)
+    GPIO.output(stage_flag, 1)
+    GPIO.remove_event_detect(photocell_stage2)
+    GPIO.add_event_detect(photocell_stage2,GPIO.RISING,
+                          callback=callback_roll_out, bouncetime=1000)
 
 def callback_roll_out(channel):
     print"callback_roll_out"
@@ -32,7 +47,7 @@ def callback_roll_out(channel):
     GPIO.remove_event_detect(photocell_stage2)
     # check if falsestart
     if GPIO.input(green_flag) == 0: 
-        print("RED")
+        # print("RED")
         bus.write_byte(0x39, 0x02)
 
 def callback_1000(channel):
@@ -42,25 +57,27 @@ def callback_1000(channel):
     GPIO.output(finish_flag, 1)
     GPIO.remove_event_detect(photocell_1000)
         
+
 def stage():    
     # stage 1
-    GPIO.wait_for_edge(photocell_stage1, GPIO.FALLING)
-    print("STAGE_1")
-    bus.write_byte(0x20, 0x1E)
-    GPIO.remove_event_detect(photocell_stage1)
+    # GPIO.wait_for_edge(photocell_stage1, GPIO.FALLING)
+    # print("STAGE_1")
+    # bus.write_byte(0x20, 0x1E)
+    # GPIO.remove_event_detect(photocell_stage1)
+    GPIO.add_event_detect(photocell_stage1,GPIO.FALLING,
+                          callback=callback_stage1, bouncetime=1000)
     
     # stage 2
-    GPIO.wait_for_edge(photocell_stage2, GPIO.FALLING)
-    print("STAGE_2")
-    bus.write_byte(0x20, 0x1C)
-    GPIO.remove_event_detect(photocell_stage2)
-    GPIO.add_event_detect(photocell_stage2,GPIO.RISING,
-                          callback=callback_roll_out, bouncetime=1000)
+    # GPIO.wait_for_edge(photocell_stage2, GPIO.FALLING)
+    # print("STAGE_2")
+    # bus.write_byte(0x20, 0x1C)
+    # GPIO.remove_event_detect(photocell_stage2)
+    GPIO.add_event_detect(photocell_stage2,GPIO.FALLING,
+                          callback=callback_stage2, bouncetime=1000)
 
 def race():
     GPIO.add_event_detect(photocell_1000, GPIO.FALLING,
                               callback=callback_1000, bouncetime=1000)   
-    print("YELLOW")
     bus.write_byte(0x20, 0x00)
     
     time.sleep(0.4)
@@ -68,7 +85,6 @@ def race():
         green = time.time()
         bus.write_byte(0x39, 0x01)        
         GPIO.output(green_flag, 1)
-        print"green: ", green
     else:
         green = time.time()
         
@@ -93,13 +109,22 @@ while raceAgain == "yes" or raceAgain == "y":
     bus.write_byte(0x20, 0xFF)
     bus.write_byte(0x39, 0xFF)
     init_gpio()
+    GPIO.remove_event_detect(photocell_stage2)
+    GPIO.remove_event_detect(photocell_1000)
+
     try:
         stage()
-        time.sleep(2)
+        while True:
+            GPIO.input(stage_flag) == 0
+            if GPIO.input(stage_flag) != 0:
+                break
+        time.sleep(2)        
         greentime = race()
         times()
     except KeyboardInterrupt:
-        print"Race Cancelled\n"
+        print"\nRace Cancelled\n"
+
+    time.sleep(5)
     print"Do you want to race again (yes(y) or no(n))?"
     raceAgain = raw_input()
 

@@ -113,19 +113,20 @@ def main():
   # Initialise display
   lcd_init()
 
-  while True:
+while True:
 
     # Send some test
-    lcd_string("RPiSpy         <",LCD_LINE_1)
-    lcd_string("I2C LCD        <",LCD_LINE_2)
-
-    time.sleep(3)
+    lcd_string("ET: 3.803",LCD_LINE_1)
+    lcd_string("REACTION: 0.012",LCD_LINE_2)
+    time.sleep(1)
+    lcd_byte(0x01,LCD_CMD) # 000001 Clear display
+    time.sleep(1)
   
-    # Send some more text
-    lcd_string(">         RPiSpy",LCD_LINE_1)
-    lcd_string(">        I2C LCD",LCD_LINE_2)
+#     # Send some more text
+#     lcd_string(">         RPiSpy",LCD_LINE_1)
+#     lcd_string(">        I2C LCD",LCD_LINE_2)
 
-    time.sleep(3)
+#     time.sleep(3)
 
 if __name__ == '__main__':
 
